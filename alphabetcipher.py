@@ -93,20 +93,25 @@ class alphaDecrypt() :
 		# diff : most frequent chars in cipher text & clear ref
 		getDist = lambda c, r : (ord(c) - ord(r)) % 26
 
-		x = 0 # fqRef index
+		n = props['n'] # fqRef index range, upper limit = ngram-width
 		fqC = fqCiph[0] # increase efficiency, readability.
-		fqR = me.fqRef[x]
+		
+		tmp = [] # interim list of p's.
 
-		dist = getDist(fqC, fqR) # get real distance
-		p = dist + 65 # predict key no.
-		pKey = chr(p) # char of predicted key no.
+		for i in range(n) :
+			fqR = me.fqRef[i]
+			dist = getDist(fqC, fqR) # get real distance
+			p = dist + 65 # predict key no.
+			tmp.append(p) # collect predicted no.
 
+		pKeys = [(p, chr(p)) for p in tmp] # a list of tuples
+				
 		print("Most frequent in ciphertext: ", fqC) # this cipher.
 		print("Most frequent in cleartext: ", fqR) # general clear.
 
-		print(f"Predicted key: {pKey} ; ASCII: {p} ; distance: {dist}\n")
+		print(f"Predicted keys / ASCII: {pKeys} ; distance: {dist}\n")
 
-		return [p, pKey] # pKey: not for mono but poly, e.g.
+		return pKeys # pKey: not for mono but poly, e.g.
 
 	# WORD MODE
 	def words() :
@@ -116,6 +121,7 @@ class alphaDecrypt() :
 
 	# GRAPH MODE
 	def bigram(me, cstmCiph = "") :
+		
 		fqGraphs = me.analyze()
 
 		biList = ["TH", "IN"]
@@ -148,7 +154,7 @@ class alphaDecrypt() :
 
 	# args only for re-usage with poly-alphabetic cipher.
 	def decrypt(me, char, dist) :
-		clearC = lambda c, k : chr((ord(c) - k) % 26 + 65)  # clear Char.
+		clearC = lambda c, k : chr((ord(c) - k) % 26 + 65) # clear Char.
 
 		return clearC(char, dist)
 
@@ -157,15 +163,15 @@ class alphaDecrypt() :
 
 		params = me.mkDict(me.cipher, 1, True)  # properties for the monogram.
 
-		dist = me.monogram(params)[0]  # get distance / predicted shift.
-
+		dist = me.monogram(params)[0][0] # get distance / predicted shift.
+		
 		for c in me.cipher :
 			if ord(c) in range(65, 91) :
 				clear += me.decrypt(c, dist)
 			else :
 				clear += c
 
-		print("Clear", "\n", clear)
+		print("Cleartext:", "\n", clear)
 
 	def decryptPoly(me, pKeyLen = 6) :
 		cipher = me.cipher  # encrypted text var.
@@ -184,8 +190,9 @@ class alphaDecrypt() :
 		distList = []
 
 		for piece in ciphList :
-			params = me.mkDict(piece, 1, True)  # properties for the monogram.
-			dist, keyChar = me.monogram(params) # get distance / predicted shift.
+			params = me.mkDict(piece, 1, True)  # properties for the monogram.						
+			dist, keyChar = me.monogram(params)[0] # distance / predicted shift.
+
 			key += keyChar
 			distList.append(dist)
 
@@ -199,7 +206,7 @@ class alphaDecrypt() :
 
 		print(clear)
 	### BIGRAM SOLUTION
-		biRes = me.bigram() # no args, just testing.
+		# biRes = me.bigram() # no args, just testing.
 
 def main() :
 	a = alphaDecrypt()
