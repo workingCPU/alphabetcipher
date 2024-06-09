@@ -38,45 +38,53 @@ class alphaDecrypt() :
 			else : # option text string
 				return str
 
-	_ciph = lambda me, c : c if c != "" else me.cipher
 
-	def analyze(me, cstmCiph = "") :
+	_ciph = lambda me, c : c if c != "" else me.cipher
+	_graphCount = lambda me, c : Counter(c).items() # get word frequency (fq)
+
+	# shared analysis.
+	def analyze(me, cstmCiph = "", gw = 1, onlyABC=True) :
+		""" gw: max. graph-width: examine n contiguoous chars """
+
 		cipher = me._ciph(cstmCiph)
 
-		fqRef = "ETAOINSHRDLCUMWFGYPBKQVXZ" # English alphabet sorted by fq. 
-		fqCiph = dict(Counter(cipher)) # get freuency of cipher letters.
+		for n in range(1, gw+1) :
+			fqCiph = me.graphs(cipher, n, onlyABC) # return n-graph list
 
-		# [1:] => exclude whitespaces (usually idx 0)
-		fqKeys = [k for k, v in
-			sorted(fqCiph.items(), key=lambda item : item[1], reverse=True)]
+			fqCiph = me._graphCount(fqCiph) # get frequency of cipher grams.
 
-		# remove all non-alphabetic chars.
-		fqKeys = [k for k in fqKeys if ord(k) >= 65 and ord(k) <= 90]
+			fqCiph = [k for k, v in
+				sorted(fqCiph, key=lambda item : item[1], reverse=True)]
 
-		print(fqKeys)
-		# get diff of the most frequent chars in cipher text & clear reference
-		keyN = lambda c, r : (ord(c) - ord(r)) % 26 + 65 # (one) key number.
-		# 65 = 64 shift + 1 index-correction
+		print(fqCiph)
 
-		x = 0 # compare idx of fqRef
-		fqK = fqKeys[0] # increase efficiency, readability.
+		return fqCiph[0] # for now just first element 0.
+
+	# single-char comparison.
+	def monograph(me, cstmCiph = "") :
+		fqRef = "ETAOINSHRDLCUMWFGYPBKQVXZ" # EN alphabet sorted by fq
+		fqCiph = me.analyze(cstmCiph)
+
+		# diff : most frequent chars in cipher text & clear ref
+		getDist = lambda c, r : (ord(c) - ord(r)) % 26
+
+		x = 0 # fqRef index
+		fqC = fqCiph[0] # increase efficiency, readability.
 		fqR = fqRef[x]
 
-		p = keyN(fqK, fqR) # predict key no.
+		dist = getDist(fqC, fqR) # get real distance
+		p = dist + 65 # predict key no.
 		pKey = chr(p) # char of predicted key no.
 
-		if fqK < fqR : # direction bwd IF cipher < clear.
-			dist = dist-26
+		if fqC < fqR : # direction bwd IF cipher < clear.
+			pass # dist = dist-26
 
-		print("Most frequent in ciphertext: ", fqKeys[0]) # this cipher.
-		print("Most frequent in cleartext: ", fqRef[x]) # general clear.
+		print("Most frequent in ciphertext: ", fqC) # this cipher.
+		print("Most frequent in cleartext: ", fqR) # general clear.
 
 		print(f"Predicted key: {pKey} ; ASCII: {p}\n")
 
 		return [p, pKey] # pKey: not for mono but poly, e.g.
-
-
-	graphCount = lambda me, c : Counter(c) # get word count!
 
 
 	def graphs(me, c, n, onlyABC=True) :
@@ -88,30 +96,37 @@ class alphaDecrypt() :
 			spaces: bool, exclude / include spaces.
 		"""
 
+		# remove all non-alphabetic chars.
 		if onlyABC :
-			c = c.translate({ord(i): None for i in " ,.()"}) # handle spaces
-		print(c)
+			c = [x for x in c if ord(x) >= 65 and ord(x) <= 90]
+
 		g = [] # graphs output list.
-		for i in range(2, len(c), 1) :
-			g.append(c[i-n:i])
+		for i in range(n, len(c), 1) :
+			g.append("".join(c[i-n:i]))
 
 		return g
 
+	# WORD MODE
+	def words() :
+		fqWords = me._graphCount(cipher.split(" ")
+		pass # tbc
 
+
+	# GRAPH MODE
 	def bigraph(me, cstmCiph = "") :
-		cipher = me._ciph(cstmCiph) # get cipher.
-		fqWords = me.graphCount(cipher.split(" "))
-
-		bigraphs = me.graphs(cipher, 2)
-		fqGraphs = me.graphCount(bigraphs)
-
-		print(fqGraphs)
+		fqGraphs = monograph
 
 		biList = ["TH", "IN"]
 		distList = []
 		for b in biList :
-			for c in b :
-				# distList.append()
+			tmpList = [] # store n dist values for the later tuple.
+
+			for i, c in enumerate(b) :
+				tmpList.append(ord(fqGraphs[0][i]) - ord(b[i]))
+
+			distList.append(tuple(tmpList))
+
+		print(distList)
 
 	def trigraph(me, cstmCiph = "") :
 		cipher = me._ciph(cstmCiph)
@@ -128,7 +143,7 @@ class alphaDecrypt() :
 	def decryptMono(me) :
 		clear = "" # clear text to be.
 
-		dist = me.analyze(me.cipher)[0]  # get distance / predicted shift.
+		dist = me.monograph(me.cipher)[0]  # get distance / predicted shift.
 
 		for c in me.cipher :
 			if ord(c) in range(65, 91) :
@@ -136,7 +151,7 @@ class alphaDecrypt() :
 			else :
 				clear += c
 
-		print(clear)
+		print("Clear", "\n", clear)
 
 	def decryptPoly(me, pKeyLen = 6) :
 		cipher = me.cipher  # encrypted text var.
@@ -154,7 +169,7 @@ class alphaDecrypt() :
 		distList = []
 
 		for piece in ciphList :
-			dist, keyChar = me.analyze(piece) # get distance / predicted shift.
+			dist, keyChar = me.monograph(piece) # get distance / predicted shift.
 			key += keyChar
 			distList.append(dist)
 
