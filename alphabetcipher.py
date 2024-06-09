@@ -9,6 +9,11 @@ class alphaDecrypt() :
 		me.cipher = ""
 		me._argParse()
 
+	@property
+	def fqRef(me) :
+		return "ETAOINSHRDLCUMWFGYPBKQVXZ" # EN alphabet sorted by fq
+
+
 	def _argParse(me) :
 		if len(sys.argv) < 2 :
 			print("Please provide a parameter.")
@@ -39,55 +44,7 @@ class alphaDecrypt() :
 				return str
 
 
-	_ciph = lambda me, c : c if c != "" else me.cipher
-	_graphCount = lambda me, c : Counter(c).items() # get word frequency (fq)
-
-	# shared analysis.
-	def analyze(me, cstmCiph = "", gw = 1, onlyABC=True) :
-		""" gw: max. graph-width: examine n contiguoous chars """
-
-		cipher = me._ciph(cstmCiph)
-
-		for n in range(1, gw+1) :
-			fqCiph = me.graphs(cipher, n, onlyABC) # return n-graph list
-
-			fqCiph = me._graphCount(fqCiph) # get frequency of cipher grams.
-
-			fqCiph = [k for k, v in
-				sorted(fqCiph, key=lambda item : item[1], reverse=True)]
-
-		print(fqCiph)
-
-		return fqCiph[0] # for now just first element 0.
-
-	# single-char comparison.
-	def monograph(me, cstmCiph = "") :
-		fqRef = "ETAOINSHRDLCUMWFGYPBKQVXZ" # EN alphabet sorted by fq
-		fqCiph = me.analyze(cstmCiph)
-
-		# diff : most frequent chars in cipher text & clear ref
-		getDist = lambda c, r : (ord(c) - ord(r)) % 26
-
-		x = 0 # fqRef index
-		fqC = fqCiph[0] # increase efficiency, readability.
-		fqR = fqRef[x]
-
-		dist = getDist(fqC, fqR) # get real distance
-		p = dist + 65 # predict key no.
-		pKey = chr(p) # char of predicted key no.
-
-		if fqC < fqR : # direction bwd IF cipher < clear.
-			pass # dist = dist-26
-
-		print("Most frequent in ciphertext: ", fqC) # this cipher.
-		print("Most frequent in cleartext: ", fqR) # general clear.
-
-		print(f"Predicted key: {pKey} ; ASCII: {p}\n")
-
-		return [p, pKey] # pKey: not for mono but poly, e.g.
-
-
-	def graphs(me, c, n, onlyABC=True) :
+	def graphs(me, c, n, onlyABC = True) :
 		"""
 		Args :
 			me : 	class-reference.
@@ -106,15 +63,60 @@ class alphaDecrypt() :
 
 		return g
 
+	_graphCount = lambda me, c : Counter(c).items() # get word frequency (fq)
+
+	# shared analysis.
+	def analyze(me, props : dict) :
+		""" props: contains all necessary properties """
+		cipher, n, onlyABC = props.values() # unpack values.
+
+		fqCiph = me.graphs(cipher, n, onlyABC) # return n-graph list
+		fqCiph = me._graphCount(fqCiph) # get frequency of cipher grams.
+
+		fqCiph = [k for k, v in
+			sorted(fqCiph, key=lambda item : item[1], reverse=True)]
+
+		print(fqCiph)
+
+		return fqCiph # for now just first element 0.
+
+	# single-char comparison.
+	def monogram(me, props : dict) :
+		""" cstmCiph """
+		""" Also reused by n-graphs, s.th. seems redundant at first
+			They bring their own prop dict containing:
+			- custom Cipher, cstmCiph, n-gram width n, etc.
+		"""
+
+		fqCiph = me.analyze(props)
+
+		# diff : most frequent chars in cipher text & clear ref
+		getDist = lambda c, r : (ord(c) - ord(r)) % 26
+
+		x = 0 # fqRef index
+		fqC = fqCiph[0] # increase efficiency, readability.
+		fqR = me.fqRef[x]
+
+		dist = getDist(fqC, fqR) # get real distance
+		p = dist + 65 # predict key no.
+		pKey = chr(p) # char of predicted key no.
+
+		print("Most frequent in ciphertext: ", fqC) # this cipher.
+		print("Most frequent in cleartext: ", fqR) # general clear.
+
+		print(f"Predicted key: {pKey} ; ASCII: {p} ; distance: {dist}\n")
+
+		return [p, pKey] # pKey: not for mono but poly, e.g.
+
 	# WORD MODE
 	def words() :
-		fqWords = me._graphCount(cipher.split(" ")
+		fqWords = me._graphCount(cipher.split(" "))
 		pass # tbc
 
 
 	# GRAPH MODE
-	def bigraph(me, cstmCiph = "") :
-		fqGraphs = monograph
+	def bigram(me, cstmCiph = "") :
+		fqGraphs = me.analyze()
 
 		biList = ["TH", "IN"]
 		distList = []
@@ -128,10 +130,20 @@ class alphaDecrypt() :
 
 		print(distList)
 
-	def trigraph(me, cstmCiph = "") :
+	def trigram(me, cstmCiph = "") :
 		cipher = me._ciph(cstmCiph)
 		fqWords = me.wordCount(cipher)
 		triList = ["THE"]
+
+	def mkDict(me, ciph, n, onlyABC) :
+		"""
+		Params :
+			cipher : [str] ciphertext.
+			n : [int] width of the n-graph.
+			onlyABC : [bool] exclude / include non-alphabet chars. (True, False)
+		"""
+
+		return dict({"cipher": ciph, "n": n, "onlyABC": onlyABC})
 
 
 	# args only for re-usage with poly-alphabetic cipher.
@@ -143,7 +155,9 @@ class alphaDecrypt() :
 	def decryptMono(me) :
 		clear = "" # clear text to be.
 
-		dist = me.monograph(me.cipher)[0]  # get distance / predicted shift.
+		params = me.mkDict(me.cipher, 1, True)  # properties for the monogram.
+
+		dist = me.monogram(params)[0]  # get distance / predicted shift.
 
 		for c in me.cipher :
 			if ord(c) in range(65, 91) :
@@ -157,19 +171,21 @@ class alphaDecrypt() :
 		cipher = me.cipher  # encrypted text var.
 		clear = "" # clear text to be.
 		key = "" # key to be (captured).
-
 		n = pKeyLen # predicted key length.
+
+	### MONOGRAM SOLUTION ###
+		# slice cipher into n pieces
 		ciphList = ["" for _ in range(n)]
 
-		# slice cipher into n pieces.
 		for i in range(0, len(cipher)) :
-			ciphList[i % n] += cipher[i]
+			ciphList[i % n] += cipher[i] # and store them.
 
 		# treat each piece of the cipher list as mono-alphabetic.
 		distList = []
 
 		for piece in ciphList :
-			dist, keyChar = me.monograph(piece) # get distance / predicted shift.
+			params = me.mkDict(piece, 1, True)  # properties for the monogram.
+			dist, keyChar = me.monogram(params) # get distance / predicted shift.
 			key += keyChar
 			distList.append(dist)
 
@@ -182,7 +198,8 @@ class alphaDecrypt() :
 				clear += c
 
 		print(clear)
-		triRes = me.bigraph() # no args, just testing.
+	### BIGRAM SOLUTION
+		biRes = me.bigram() # no args, just testing.
 
 def main() :
 	a = alphaDecrypt()
