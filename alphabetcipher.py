@@ -45,7 +45,7 @@ class alphaDecrypt() :
 		"""
 		Args :
 			me : 	class-reference.
-			props: contains all necessary properties
+			props: 	contains all necessary properties
 		"""
 		c, n, onlyABC = props.values() # unpack valuues, c=cipher.
 		
@@ -103,20 +103,20 @@ class alphaDecrypt() :
 				distTmp.append(dist) # store dist.								
 				tmp.append(p) # store predicted no.
 		
-			distList.append(distTmp)
-			pKeys = [(p, chr(p)) for p in tmp] # store keys & chars
-			keyList.append(pKeys)
+			distList.append(distTmp)			 
+			keyList.append(tmp) # store keys
 			tmp, distTmp = [], [] # reset tmps
 		
-		keys0 = keyList[0]
+		key0, keyChar0 = keyList[0], [chr(k) for k in keyList[0]]
 		dist0 = distList[0]
-				
+		
 		print("Most frequent in ciphertext: ", fqC) # this cipher.
-		print("Most frequent in cleartext: ", fqR) # general clear.
+		print("Most frequent in cleartext: ", fqR[0]) # general clear.
 
-		print(f"Predicted keys / ASCII: {keys0} ; distance: {dist0}\n")
-
-		return pKeys # pKey: not for mono but poly, e.g.
+		print(f"Keys / ASCII: {key0} / {keyChar0} ; ", end="")
+		print(f"distance: {dist0}")
+		print(f"Keylist: {keyList}\n")
+		return keyList # pKey: not for mono but poly, e.g.
 
 	# WORD MODE
 	def words() :
@@ -126,7 +126,7 @@ class alphaDecrypt() :
 
 	# GRAM MODE
 	def ngram(me, props) :
-		biList = ["TH", "IN"]				
+		biList = ["TH", "NO", "IN"]				
 		triList = ["THE"]
 		nList = []
 
@@ -165,7 +165,7 @@ class alphaDecrypt() :
 		params = me.mkDict(me.cipher, 1, True, 1, me.fqRef)
 
 		dist = me.monogram(params)[0][0] # get distance / predicted shift.
-		print("Dist:", dist)
+		print("Dist: ", dist)
 
 		for c in me.cipher :
 			if ord(c) in range(65, 91) :
@@ -173,7 +173,7 @@ class alphaDecrypt() :
 			else :
 				clear += c
 
-		print("Cleartext:", "\n", clear)
+		print("Cleartext:\n", clear)
 
 	def decryptPolyMono(me, pKeyLen = 6) :		
 		""" Description:
@@ -188,26 +188,26 @@ class alphaDecrypt() :
 		for i in range(0, len(me.cipher)) :
 			ciphList[i % n] += me.cipher[i] # and store them.
 
-		# treat each piece of the cipher list as mono-alphabetic.
-		distList = []
+		# treat each piece of the cipher list as mono-alphabetic.		
+		keys = [] # store one / all keys.
+		distList = [] # store dist.
 
 		for piece in ciphList :
 			# monogram properties.
-			params = me.mkDict(piece, 1, True, 1, me.fqRef)
+			params = me.mkDict(piece, 1, True, 1, me.fqRef)			
+			dist = me.monogram(params)[0][0] # distance												
+			key += chr(dist)
 			
-			dist, keyChar = me.monogram(params)[0] # distance / predicted shift.
-
-			key += keyChar
-			distList.append(dist)
+			distList.append(dist)												
 
 		print(distList, key)
-
+		
 		for i, c in enumerate(me.cipher) :
 			if ord(c) in range(65, 91) :
 				clear += me.decrypt(me.cipher[i], distList[i % n])
 			else :
 				clear += c
-
+						
 		print(clear)
 
 	def decryptPolyNgrams(me, pKeyLen=6) :
@@ -216,9 +216,9 @@ class alphaDecrypt() :
 
 		# monogram properties.
 		n = pKeyLen
-		params = me.mkDict(me.cipher, n, True, 1, me.fqRef)
+		params = me.mkDict(me.cipher, n, True, 3, me.fqRef)
 		nDist = me.ngram(params) # load bigram, get dists.
-		print(nDist)
+		print("nDist: ", nDist)
 		
 		# decrypt.
 		tmpClear = "" # ngram results.
@@ -226,7 +226,7 @@ class alphaDecrypt() :
 
 		for i, c in enumerate(me.cipher) :			
 			if ord(c) in range(65, 91) :
-				tmpClear += me.decrypt(c, nDist[i % n][0])
+				tmpClear += me.decrypt(c, nDist[1][i % n])
 			else :
 				tmpClear += c
 
